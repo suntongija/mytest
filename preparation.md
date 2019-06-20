@@ -173,6 +173,26 @@ upstream webserver {
 #通过ip_hash设置调度规则为：相同客户端访问相同服务器
            ip_hash;   //hash加密IP：echo IP 前三个8位| md5sum 结果是16进制数，数据不变hash值一直不变    将结果对二取余，结果0将服务转给web1  ，结果1 将服务转给web2
 
+### Fastcgi(php-fpm)
+
+php-fpm（服务）：PHP进程管理的服务 **9000端口**
+ <u>php-fpm是 FastCGI 的实现，并提供了进程管理的功能。</u> 
+        进程包含 **master** 进程和 **worker** 进程两种进程 
+        master 进程只有一个，负责监听端口，接收来自 Web Server 的请求，而 <u>worker 进程则一般有多个</u>(具体数量根据实际需要配置)，每个进程内部都嵌入了一个 PHP 解释器，是 PHP 代码真正执行的地方。
+ FastCGI是语言无关的、可伸缩架构的CGI开放扩展，其主要行为是将CGI解释器进程保持在内存中并因此获得较高的性能。众所周知，<u>CGI解释器的反复加载是CGI性能低下的主要原因</u>，CGI解释器保持在内存中并接受FastCGI进程管理器调度，则可以提供良好的性能、伸缩性、Fail-Over特性等等
+如果
+将脚本传送9000端口自动执行，能同时接收8个脚本
+
+```
+[root@proxy etc]# vim /etc/php-fpm.d/www.conf
+[www]:
+listen = 127.0.0.1:9000      //PHP端口号
+pm.max_children = 32         //最大进程数量根据服务器内存配置以及需求
+pm.start_servers = 15        //最小进程数量
+pm.min_spare_servers = 5     //最少需要几个空闲着的进程
+pm.max_spare_servers = 32    //最多允许几个进程处于空闲状态
+```
+
 
 
 ### Nginx 与FastCGI连接方式(套接字)
@@ -183,7 +203,7 @@ unix domain socket: IPC(inter-process communication 进程间通信) socket 用�
 
 TCP:使用端口127.0.0.1:9000端口连接
 
-套接字:
+*套接字:*
 
 修改PHP配置文件:
 
@@ -206,12 +226,20 @@ fastcgi_pass unix:/dev/shm/php-cgi.sock;
 
 缺点:1.进程间通信要求Nginx和php-fpm搭建到同一台服务器.          2.并发连接数爆发时,会产生大量的长时缓存,有可能直接出错并不反回异常,不如面向连接协议稳定.
 
-### Nginx 优化
-
-Nginx并发量:
+*TCP协议:*(实现)
 
 ```
-worker_processes  1;  //修改与CPU内核数量一致
+fastcgi_pass   127.0.0.1:9000;  #将请求转发给本机9000端口
+```
+
+
+
+### Nginx 优化
+
+#### Nginx并发量:
+
+```
+worker_processes  1;  //修改与CPU内核数量一致(进程数)
 events {
 worker_connections  65535;  //尽量写高，达不到没关系
 use epoll;  //处理模型  选项 epoll（nginx默认设置） select（http默认设置）
