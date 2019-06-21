@@ -20,17 +20,17 @@ I/O多路复用:多个I/O可以复用一个进程,允许进程同时检查 多�
 
 I/O复用模式:
 
-select():可观察许多流的I/O事件,在空闲时,会把线程阻塞掉,当有流事件需要处理时,进程采用轮询的方式来检查一遍所有fd是否就绪,当fd数量较多时,性能欠佳.
+1.select():可观察许多流的I/O事件,在空闲时,会把线程阻塞掉,当有流事件需要处理时,进程采用轮询的方式来检查一遍所有fd是否就绪,当fd数量较多时,性能欠佳.
 
-epoll():能更高效的检查大量fd,当连接有I/O流事件产生的时候,epoll就会告诉进程哪个连接有I/O流事件产生,然后进程就去处理这个事件.即进程对这些流的操作都是有意义的
+2.epoll():能更高效的检查大量fd,当连接有I/O流事件产生的时候,epoll就会告诉进程哪个连接有I/O流事件产生,然后进程就去处理这个事件.即进程对这些流的操作都是有意义的
 
 在一个Web服务中，延迟最多的就是等待网络传输。nginx在启动后，会有一个master进程和多个worker进程。master进程主要用来管理worker进程，包含：接收来自外界的信号，向各worker进程发送信号，监控worker进程的运行状态，当worker进程退出后(异常情况下)，会自动重新启动新的worker进程。而基本的网络事件，则是放在worker进程中来处理了。在一个请求需要等待的时候，worker可以空闲出来处理其他的请求，少数几个worker进程就能够处理大量的并发。
 
-Nginx服务器每进来一个request，会有一个worker进程去处理。但不是全程的处理,处理到可能发生阻塞的地方。比如向后端服务器转发request，并等待请求返回。那么，这个处理的worker不会挂起，他会在发送完请求后，注册一个事件：“如果upstream返回了，告诉我一声，我再接着干”。然后worker进程去处理其他事件, 此时，如果再有request 进来，他就可以很快再按这种方式处理。而一旦上游服务器返回了，就会触发这个事件，worker才会来接手，这个request才会接着往下走。这就是异步非阻塞callback的方式.
+Nginx服务器每进来一个request，会有一个worker进程去处理。但不是全程的处理,处理到可能发生阻塞的地方。比如向后端服务器转发request，并等待请求返回。那么，这个处理的worker不会挂起，他会在发送完请求后，注册一个事件：“如果upstream返回了，告诉我一声，我再接着干”。然后worker进程去处理其他事件, 此时，如果再有request 进来，他就可以很快再按这种方式处理。而一旦上游服务器返回了，就会触发这个事件，worker才会来接手，这个request才会接着往下走。<u>*这就是异步非阻塞callback的方式*</u>.
 
 Apache:同步阻塞
 
-每一个连接,apache就会创建一个进程,每隔进程内单线程,最多创建256个进程.
+每一个连接,apache就会创建一个进程,每隔进程内单线程,最多创建256个进程.使用select()复用模式;
 
 ### Nginx平滑升级
 
@@ -390,4 +390,52 @@ open_file_cache          max=2000  inactive=20s;
 //只有访问次数超过5次会被缓存
 } 
 ```
+
+
+
+### Nginx安全
+
+#### 禁用 --without-http_autoindex_module模块
+
+访问页面路径不加网页名，会将文件夹下的所有网页都列出存在风险
+
+```
+[root@host50 nginx-1.12.2]# ./configure --without-http_autoindex_module
+[root@host50 nginx-1.12.2]# make && make install
+```
+
+#### 修改nginx的版本
+
+```
+[root@host50 nginx-1.12.2]# curl -I http://192.168.4.50 //获取版本号
+Server: nginx/1.12.2   //查看到nginx版本
+[root@host50 nginx-1.12.2]# nginx -s stop
+[root@host50 nginx-1.12.2]# vim src/http/ngx_http_header_filter_module.c
+static u_char ngx_http_server_string[] = "Server: hehe" CRLF;
+static u_char ngx_http_server_full_string[] = "Server: hehe "  CRLF;
+static u_char ngx_http_server_build_string[] = "Server: hehe "  CRLF;
+[root@host50 nginx-1.12.2]# ./configure --without-http_autoindex_module
+[root@host50 nginx-1.12.2]# make && make install
+[root@host50 nginx-1.12.2]# curl -I 192.168.4.50
+Server: hehe
+```
+
+
+
+#### 限制并发（DDOS攻击）
+
+***ngx_http_limit_req_module***  默认安装的
+
+```
+[root@host50 nginx-1.12.2]# vim /usr/local/nginx/conf/nginx.conf
+limit_req_zone $binary_remote_addr zone=one:10m rate=1r/s;
+//http下添加
+limit_req zone=one burst=5;
+//server下添加
+```
+
+——将客户端IP信息存储名称为one的共享内存，空间为10M
+——1M可以存储8千个IP的信息，10M存8万个主机状态
+——每秒中仅接受1个请求，多余的放入漏斗 rate=1r/s
+——漏斗超过5个则报错
 
