@@ -439,3 +439,30 @@ limit_req zone=one burst=5;
 ——每秒中仅接受1个请求，多余的放入漏斗 rate=1r/s
 ——漏斗超过5个则报错
 
+
+
+
+
+# iptables 防火墙
+
+![防火墙报文流向](/root/图片/防火墙报文流向.png)
+
+报文流向:
+
+到本机进程的报文:PREROUTING→INPUT
+
+由本机转发的报文:PREROUTING→FORWARD→POSTROUTING
+
+由本机的某进程发出的报文(通常为响应报文) :OUTPUT →POSTROUTING
+
+
+|  raw   | 状态跟踪表                          |              PREROUTING OUTPUT              |
+| :----: | ----------------------------------- | :-----------------------------------------: |
+| mangle | 包标记表:拆解报文做出修改并重新封装 | PREROUTING POSTROUTING INPUT OUTPUT FORWARD |
+|  nat   | 地址转换表                          |        PREROUTING POSTROUTING OUTPUT        |
+| filter | 过滤表                              |           INPUT  FORWARD  OUTPUT            |
+
+优先级:
+
+![优先级](/root/图片/优先级.png)
+
