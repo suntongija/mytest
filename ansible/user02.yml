@@ -1,0 +1,30 @@
+---
+- hosts: web1
+  remote_user: root
+  tasks:
+    - name: add user
+      user:
+        name: "{{item.name}}"
+        group: "{{item.group}}"
+        password: "{{item.pwd|password_hash('sha512')}}"
+      with_items:
+        - 
+          name: nb
+          group: ftp
+          pwd: dachui
+        - 
+          name: wk
+          group: man
+          pwd: xiangj
+        - 
+          name: dd
+          group: daemon
+          pwd: 82hs
+        - 
+          name: jj
+          group: adm
+          pwd: kj
+        - 
+          name: xx
+          group: root
+          pwd: a
