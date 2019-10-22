@@ -323,11 +323,30 @@ large_client_header_buffers  4 4k;
 
 ```
 location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
-                expires        30d;
+                expires        30d;  //静态文件缓存30d
+                access_log  off;    //对于静态文件的访问记录不记录日志
     }
 ```
 
 静态网站缓存,查看网页缓存: firefox地址栏输入 about:cache   在disk里面List Cache Entries中可以查寻到每条缓存信息
+
+#### nginx 静态防盗链
+
+```
+location ~ .*\.(gif|jpg|jpeg|png|bmp|swf|flv|mp4|ico)$ {
+//设置防盗链的类型
+expires 30d; access_log off;   //静态网页缓存
+valid_referers none blocked *.baidu.com *.google.com *.iosx.top server_names ~\.google\. ~\.baidu\.;
+//通过http协议的表头referer字段定义允许文件链出的域名白名单
+if ($invalid_referer) {
+#return 403;
+rewrite ^/ https://www.iosx.top/image/dtg.jpg;
+//重定向到自定义网站
+}
+}
+```
+
+
 
 #### 日志切割
 
@@ -441,11 +460,9 @@ limit_req zone=one burst=5;
 
 
 
-
-
 # iptables 防火墙
 
-![防火墙报文流向](/root/图片/防火墙报文流向.png)
+![防火墙报文流向](C:\Users\SUN\Documents\git_mytest\mytest\防火墙报文流向.png)
 
 报文流向:
 
@@ -464,5 +481,9 @@ limit_req zone=one burst=5;
 
 优先级:
 
-![优先级](/root/图片/优先级.png)
+![优先级](C:\Users\SUN\Documents\git_mytest\mytest\优先级.png)
+
+
+
+
 
